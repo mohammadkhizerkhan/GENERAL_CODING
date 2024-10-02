@@ -16,6 +16,7 @@
 - Debounce, throttling
 - M to M table (junction mapping table)
 - DB view
+- OAuth2
 
 ---
 
