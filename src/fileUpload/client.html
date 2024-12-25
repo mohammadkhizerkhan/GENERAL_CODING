@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+</head>
+<body>
+    <h1>Upload Large File</h1>
+    <input type="file" id="fileInput" />
+    <button onclick="uploadFile()">Upload</button>
+
+    <script>
+        const uploadFile = async () => {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please select a file first.');
+                return;
+            }
+            
+            const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
+                
+                await uploadChunk(chunk, i, totalChunks, file.name);
+            }
+            alert('File uploaded successfully.');
+        };
+
+        const uploadChunk = async (chunk, index, totalChunks, fileName) => {
+            const formData = new FormData();
+            formData.append("file", chunk);
+            formData.append("chunk_number", index);
+            formData.append("total_chunks", totalChunks);
+            formData.append("name", fileName);
+
+            try {
+                const response = await fetch('http://localhost:3000/uploads', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to upload chunk');
+                }
+
+                const result = await response.json();
+                console.log(`Chunk ${index} uploaded successfully:`, result);
+            } catch (error) {
+                console.error(`Error uploading chunk ${index}:`, error);
+            }
+        };
+    </script>
+</body>
+</html>
