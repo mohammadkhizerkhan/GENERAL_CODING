@@ -1,60 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>File Upload</title>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Upload Large File</h1>
     <input type="file" id="fileInput" />
     <button onclick="uploadFile()">Upload</button>
-
+    <button id="downloadBtn">Download File</button>
     <script>
-        const uploadFile = async () => {
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-            if (!file) {
-                alert('Please select a file first.');
-                return;
+      document
+        .getElementById("downloadBtn")
+        .addEventListener("click", downloadFile);
+
+      async function downloadFile() {
+        const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+        const url = "http://localhost:3000/download";
+        let start = 0;
+        let end = CHUNK_SIZE - 1;
+        let fileSize = 0;
+        const chunks = [];
+
+        try {
+          // Fetch the first chunk to determine the file size
+          let response = await fetch(url, {
+            headers: { Range: `bytes=${start}-${end}` },
+          });
+          if (!response.ok) {
+            throw new Error("Failed to fetch initial chunk");
+          }
+
+          const contentRange = response.headers.get("Content-Range");
+          if (!contentRange) {
+            throw new Error("Content-Range header is missing in the response");
+          }
+
+          fileSize = parseInt(contentRange.split("/")[1]);
+          chunks.push(await response.blob());
+
+          // Download the rest of the file in chunks
+          while (end < fileSize - 1) {
+            start = end + 1;
+            end = Math.min(start + CHUNK_SIZE - 1, fileSize - 1);
+            response = await fetch(url, {
+              headers: { Range: `bytes=${start}-${end}` },
+            });
+            if (!response.ok) {
+              throw new Error(`Failed to fetch chunk ${start}-${end}`);
             }
-            
-            const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
-            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-            
-            for (let i = 0; i < totalChunks; i++) {
-                const start = i * CHUNK_SIZE;
-                const end = Math.min(start + CHUNK_SIZE, file.size);
-                const chunk = file.slice(start, end);
-                
-                await uploadChunk(chunk, i, totalChunks, file.name);
-            }
-            alert('File uploaded successfully.');
-        };
+            chunks.push(await response.blob());
+          }
 
-        const uploadChunk = async (chunk, index, totalChunks, fileName) => {
-            const formData = new FormData();
-            formData.append("file", chunk);
-            formData.append("chunk_number", index);
-            formData.append("total_chunks", totalChunks);
-            formData.append("name", fileName);
+          // Combine the chunks into a single Blob
+          const completeBlob = new Blob(chunks, {
+            type: "application/octet-stream",
+          });
 
-            try {
-                const response = await fetch('http://localhost:3000/uploads', {
-                    method: 'POST',
-                    body: formData,
-                });
+          // Create a download link and trigger the download
+          const downloadLink = document.createElement("a");
+          downloadLink.href = URL.createObjectURL(completeBlob);
+          downloadLink.download = "test.txt"; // Name of the final file
+          downloadLink.click();
 
-                if (!response.ok) {
-                    throw new Error('Failed to upload chunk');
-                }
+          // Clean up the created URL
+          URL.revokeObjectURL(downloadLink.href);
+        } catch (error) {
+          console.error("Error downloading file:", error);
+          alert("Error downloading file. See console for details.");
+        }
+      }
 
-                const result = await response.json();
-                console.log(`Chunk ${index} uploaded successfully:`, result);
-            } catch (error) {
-                console.error(`Error uploading chunk ${index}:`, error);
-            }
-        };
+      const uploadFile = async () => {
+        const fileInput = document.getElementById("fileInput");
+        const file = fileInput.files[0];
+        if (!file) {
+          alert("Please select a file first.");
+          return;
+        }
+
+        const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunk = file.slice(start, end);
+
+          await uploadChunk(chunk, i, totalChunks, file.name);
+        }
+        alert("File uploaded successfully.");
+      };
+
+      const uploadChunk = async (chunk, index, totalChunks, fileName) => {
+        const formData = new FormData();
+        formData.append("file", chunk);
+        formData.append("chunk_number", index);
+        formData.append("total_chunks", totalChunks);
+        formData.append("name", fileName);
+
+        try {
+          const response = await fetch("http://localhost:3000/uploads", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to upload chunk");
+          }
+
+          const result = await response.json();
+          console.log(`Chunk ${index} uploaded successfully:`, result);
+        } catch (error) {
+          console.error(`Error uploading chunk ${index}:`, error);
+        }
+      };
     </script>
-</body>
+  </body>
 </html>
