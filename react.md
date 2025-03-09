@@ -125,3 +125,4 @@ Answer from Perplexity: pplx.ai/share
 
 
 // react md, linkedin, node , react doc
+// polifills, react doc, caching, machine coding, yt videos, once again code splitting,event loop, fetch with retry, deepclone, find object's value based on its nested path,parallel async calls, thahir machine coding round
